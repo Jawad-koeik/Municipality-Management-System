@@ -1,0 +1,60 @@
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mms_app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - mms_network
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: mms_nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www
+      - ./Docker/nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - mms_network
+
+  mysql:
+    image: mysql:8.0
+    container_name: mms_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: Municipality-Management-System
+      MYSQL_USER: mms_user
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: root_secret
+    ports:
+      - "3307:3306"
+    volumes:
+      - mms_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysql", "-h", "127.0.0.1", "-u", "mms_user", "-psecret", "-e", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - mms_network
+
+networks:
+  mms_network:
+    driver: bridge
+
+volumes:
+  mms_mysql_data:
+    driver: local
